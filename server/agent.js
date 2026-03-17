@@ -81,7 +81,7 @@ async function handleSupplierImage(event) {
 // ---- Process สินค้าแต่ละรายการ -------------------------
 
 async function processProduct(item, imageUrl, rawText) {
-  const { name, brand, shade, shade_code, product_type, origin, size, unit, price, confidence, note } = item;
+  const { name, brand, shade, shade_code, product_type, origin, size, unit, price, confidence, note, is_guessed } = item;
 
   // ค้นหาสินค้าที่มีอยู่แล้ว
   let product = await getProductByMatch(brand, name, shade);
@@ -121,6 +121,11 @@ async function processProduct(item, imageUrl, rawText) {
 
   // บันทึก price_history ทุกครั้ง
   if (price !== null && price !== undefined) {
+    // ถ้า AI เดา ให้เพิ่ม note แจ้งเตือน admin
+    const historyNote = is_guessed
+      ? `[AI เดา — รอ admin ยืนยัน] ${note || ''}`.trim()
+      : (note || null);
+
     await addPriceHistory({
       productId:       product.id,
       costPrice:       price,
@@ -128,11 +133,11 @@ async function processProduct(item, imageUrl, rawText) {
       imageUrl,
       agentConfidence: confidence || null,
       rawText,
-      note:            note || null,
+      note:            historyNote,
     });
   }
 
-  return { brand, name, shade, price, isNew, oldCost, changePercent, confidence };
+  return { brand, name, shade, price, isNew, oldCost, changePercent, confidence, isGuessed: !!is_guessed };
 }
 
 // ---- สร้างข้อความ Reply ---------------------------------
@@ -155,10 +160,18 @@ function buildReplyText(results) {
       status = '⚪ เท่าเดิม';
     }
 
-    return `• ${label} — ${priceStr} ${status}`;
+    // แจ้งเตือนถ้า AI เดาข้อมูล
+    const guessTag = r.isGuessed ? ' ❓เดา' : '';
+
+    return `• ${label} — ${priceStr} ${status}${guessTag}`;
   });
 
-  return `✅ รับราคาแล้ว ${results.length} รายการ\n\n${lines.join('\n')}`;
+  const guessCount = results.filter(r => r.isGuessed).length;
+  const guessWarning = guessCount > 0
+    ? `\n\n❓ มี ${guessCount} รายการที่ AI เดา — กรุณาเข้า Admin ยืนยันข้อมูล`
+    : '';
+
+  return `✅ รับราคาแล้ว ${results.length} รายการ\n\n${lines.join('\n')}${guessWarning}`;
 }
 
 function buildAlertText(highChanges) {
