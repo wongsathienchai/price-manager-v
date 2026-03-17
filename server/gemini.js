@@ -97,12 +97,71 @@ class GeminiError extends Error {
 }
 
 /**
- * Parse คำแก้ไขจากผู้ใช้ เพื่ออัปเดตข้อมูลสินค้า
- * @param {Array} products — รายการสินค้าที่ bot เพิ่งบันทึก [{name, brand, shade, price, ...}]
+ * Parse คำแก้ไขจากผู้ใช้ — ใช้ regex ก่อน ถ้าซับซ้อนจึง fallback ไป Gemini
+ * @param {Array} products — รายการสินค้าที่ bot เพิ่งบันทึก
  * @param {string} userText — ข้อความที่ผู้ใช้พิมมา
  * @returns {{ index: number, updates: object, intent: string }}
  */
 async function parseCorrection(products, userText) {
+  // ลองด้วย regex ก่อน (เร็ว ไม่เปลือง quota)
+  const quick = parseWithRegex(userText);
+  if (quick.intent === 'cancel') return quick;
+  if (quick.intent === 'correction' && Object.keys(quick.updates).length > 0) return quick;
+
+  // regex ไม่เจอ field ที่ชัดเจน → ใช้ Gemini
+  return parseCorrectionWithGemini(products, userText);
+}
+
+/**
+ * Regex-based parser สำหรับ pattern ทั่วไป
+ */
+function parseWithRegex(text) {
+  const t = text.trim();
+
+  // Cancel intent
+  if (/^(โอเค|ถูกแล้ว|ok|ตกลง|cancel|ยกเลิก|ไม่ต้อง|เสร็จแล้ว|จบ)/i.test(t)) {
+    return { index: 0, updates: {}, intent: 'cancel' };
+  }
+
+  const updates = {};
+
+  // ราคา: "ราคา 450", "ราคา450", "แก้ไขราคา 40 บาท", "ราคาเป็น 450"
+  const priceMatch = t.match(/ราคา(?:เป็น|:)?\s*[""]?(\d+(?:\.\d+)?)[""]?/);
+  if (priceMatch) updates.price = parseFloat(priceMatch[1]);
+
+  // จำนวน/สต็อก: "จำนวน 300 ชิ้น", "สต็อก 50"
+  const stockMatch = t.match(/(?:จำนวน|สต็อก|stock)(?:เป็น|:)?\s*[""]?(\d+)[""]?/i);
+  if (stockMatch) updates.stock = parseInt(stockMatch[1]);
+
+  // ชื่อ: "ชื่อเป็น XXX", "ชื่อ XXX"
+  const nameMatch = t.match(/ชื่อ(?:เป็น|:)?\s*[""]?([^""\n,]{2,})[""]?/);
+  if (nameMatch) updates.name = nameMatch[1].trim();
+
+  // แบรนด์: "แบรนด์ CLIO", "แบรนด์เป็น LANEIGE"
+  const brandMatch = t.match(/แบรนด์(?:เป็น|:)?\s*[""]?([^""\n,]{2,})[""]?/i);
+  if (brandMatch) updates.brand = brandMatch[1].trim();
+
+  // เฉดสี: "เฉดสี Rose", "shade Rose Gold"
+  const shadeMatch = t.match(/(?:เฉดสี|shade)(?:เป็น|:)?\s*[""]?([^""\n,]{2,})[""]?/i);
+  if (shadeMatch) updates.shade = shadeMatch[1].trim();
+
+  // ประเภท: "ประเภทเป็น ลิปสติก"
+  const typeMatch = t.match(/ประเภท(?:เป็น|:)?\s*[""]?([^""\n,]{2,})[""]?/);
+  if (typeMatch) updates.product_type = typeMatch[1].trim();
+
+  // รายการที่: "รายการที่ 2 ..."
+  let index = 0;
+  const idxMatch = t.match(/รายการ(?:ที่)?\s*(\d+)/);
+  if (idxMatch) index = parseInt(idxMatch[1]) - 1;
+
+  const intent = Object.keys(updates).length > 0 ? 'correction' : 'unclear';
+  return { index, updates, intent };
+}
+
+/**
+ * Gemini fallback สำหรับ text ที่ซับซ้อน
+ */
+async function parseCorrectionWithGemini(products, userText) {
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
     generationConfig: { temperature: 0.1 },
@@ -119,26 +178,20 @@ ${productList}
 ผู้ใช้พิมแก้ไขว่า: "${userText}"
 
 ตอบเป็น JSON เท่านั้น ห้ามมี markdown หรือข้อความอื่น:
-{
-  "index": 0,
-  "updates": {},
-  "intent": "correction"
-}
+{"index":0,"updates":{},"intent":"correction"}
 
 กฎ:
-- index คือลำดับสินค้า (0-based) ที่ต้องการแก้ไข ถ้าผู้ใช้บอกว่า "รายการที่ 2" ให้ index = 1 ถ้าไม่ระบุให้ใช้ 0
-- updates ใส่เฉพาะ field ที่ต้องการเปลี่ยน ได้แก่: name, brand, shade, shade_code, product_type, origin, size, price, unit
-- price ต้องเป็น number ไม่ใช่ string
-- intent เป็น "correction" ถ้าผู้ใช้ต้องการแก้ไขข้อมูล
-- intent เป็น "cancel" ถ้าผู้ใช้บอกยกเลิก/ถูกแล้ว/ไม่ต้องแก้
-- intent เป็น "unclear" ถ้าไม่แน่ใจว่าต้องการอะไร`;
+- index คือลำดับสินค้า (0-based) "รายการที่ 2" = index 1 ถ้าไม่ระบุใช้ 0
+- updates: field ที่แก้ได้ คือ name, brand, shade, shade_code, product_type, origin, size, price, unit, stock
+- price และ stock ต้องเป็น number
+- intent: "correction"=แก้ไข, "cancel"=ถูกแล้ว/ยกเลิก, "unclear"=ไม่รู้ว่าต้องการอะไร`;
 
   let text;
   try {
     const result = await model.generateContent(prompt);
     text = result.response.text().trim();
   } catch (err) {
-    if (err.message?.includes('QUOTA_EXCEEDED') || err.status === 429) {
+    if (err.message?.includes('QUOTA_EXCEEDED') || err.status === 429 || err.message?.includes('quota')) {
       throw new GeminiError('QUOTA_EXCEEDED', 'Gemini quota หมด');
     }
     throw err;

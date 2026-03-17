@@ -272,7 +272,21 @@ async function handleSupplierText(event) {
   }
 
   try {
-    const updated = await updateProduct(product.id, correction.updates);
+    // Map field names จาก correction → column ใน Supabase
+    const FIELD_MAP = { price: 'current_cost' };
+    const FIELD_LABELS = {
+      name: 'ชื่อ', brand: 'แบรนด์', shade: 'เฉดสี',
+      shade_code: 'รหัสเฉดสี', product_type: 'ประเภท',
+      origin: 'แหล่งที่มา', size: 'ขนาด', price: 'ราคา',
+      unit: 'หน่วย', stock: 'จำนวน',
+    };
+
+    const dbUpdates = {};
+    for (const [k, v] of Object.entries(correction.updates)) {
+      dbUpdates[FIELD_MAP[k] ?? k] = v;
+    }
+
+    const updated = await updateProduct(product.id, dbUpdates);
 
     // อัปเดต session ให้ตรงกับข้อมูลล่าสุด
     session.products[idx] = { ...product, ...correction.updates };
@@ -281,13 +295,8 @@ async function handleSupplierText(event) {
       ? `${updated.brand} ${updated.name} (${updated.shade})`
       : `${updated.brand} ${updated.name}`;
 
-    const fieldNames = {
-      name: 'ชื่อ', brand: 'แบรนด์', shade: 'เฉดสี',
-      shade_code: 'รหัสเฉดสี', product_type: 'ประเภท',
-      origin: 'แหล่งที่มา', size: 'ขนาด', price: 'ราคา', unit: 'หน่วย',
-    };
     const changedFields = Object.keys(correction.updates)
-      .map(k => `${fieldNames[k] ?? k}: ${correction.updates[k]}`)
+      .map(k => `${FIELD_LABELS[k] ?? k}: ${correction.updates[k]}`)
       .join(', ');
 
     await replyMessage(
