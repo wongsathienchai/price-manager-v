@@ -66,12 +66,14 @@ async function upsertProduct(data) {
 }
 
 /**
- * อัปเดต current_cost ของสินค้า
+ * อัปเดต current_cost และ image_url ของสินค้า
  */
-async function updateProductCost(productId, newCost) {
+async function updateProductCost(productId, newCost, imageUrl = null) {
+  const updateData = { current_cost: newCost };
+  if (imageUrl) updateData.image_url = imageUrl;
   const { data, error } = await supabase
     .from('products')
-    .update({ current_cost: newCost })
+    .update(updateData)
     .eq('id', productId)
     .select()
     .single();

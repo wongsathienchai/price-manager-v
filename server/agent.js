@@ -101,6 +101,7 @@ async function processProduct(item, imageUrl, rawText) {
       size:          size || null,
       unit:          unit || 'ชิ้น',
       current_cost:  price || null,
+      image_url:     imageUrl || null,
       stock:         0,
       is_available:  false, // ยังไม่เปิดขายจนกว่าเจ้าของจะตั้งราคา
     });
@@ -112,9 +113,9 @@ async function processProduct(item, imageUrl, rawText) {
       changePercent = Math.round(((price - oldCost) / oldCost) * 100);
     }
 
-    // อัปเดต current_cost ถ้ามีราคาใหม่
+    // อัปเดต current_cost และ image_url ถ้ามีราคาใหม่
     if (price !== null && price !== undefined) {
-      await updateProductCost(product.id, price);
+      await updateProductCost(product.id, price, imageUrl);
     }
   }
 
