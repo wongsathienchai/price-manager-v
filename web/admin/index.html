@@ -672,6 +672,7 @@ function productCard(p) {
       <div class="edit-actions">
         <button class="btn btn-primary" onclick="saveProductFull('${p.id}')">💾 บันทึกข้อมูล</button>
         <button class="btn btn-gray"    onclick="toggleEdit('${p.id}')">✕ ปิด</button>
+        <button class="btn btn-red"     onclick="confirmDelete('${p.id}','${escHtml(p.brand+' '+p.name+(p.shade?' ('+p.shade+')':''))}')" style="margin-left:auto">🗑️ ลบสินค้า</button>
       </div>
     </div>
   </div>`;
@@ -744,6 +745,25 @@ async function quickToggle(id) {
     const card  = document.getElementById(`pc-${id}`);
     if (badge) { badge.textContent = is_available ? '🟢 เปิดขาย' : '⚫ ปิดขาย'; badge.className = `pc-status ${is_available?'on':'off'}`; }
     if (card)  card.className = `product-card ${is_available ? 'available' : 'unavailable'}`;
+  } catch (e) { showToast('❌ ' + e.message); }
+}
+
+// ---- Delete product ---- //
+function confirmDelete(id, label) {
+  if (!confirm(`⚠️ ยืนยันลบสินค้า?\n\n"${label}"\n\nการลบจะไม่สามารถกู้คืนได้`)) return;
+  removeProduct(id);
+}
+
+async function removeProduct(id) {
+  try {
+    await api(`/products/${id}`, 'DELETE');
+    showToast('🗑️ ลบสินค้าแล้ว');
+    allProducts = allProducts.filter(p => p.id !== id);
+    const card = document.getElementById(`pc-${id}`);
+    if (card) card.remove();
+    document.getElementById('products-count').textContent =
+      `แสดง ${document.querySelectorAll('[id^="pc-"]').length} จาก ${allProducts.length} รายการ`;
+    populateBrandFilter();
   } catch (e) { showToast('❌ ' + e.message); }
 }
 

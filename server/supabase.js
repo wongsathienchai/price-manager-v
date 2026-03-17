@@ -81,6 +81,17 @@ async function updateProduct(productId, updates) {
 }
 
 /**
+ * ลบสินค้า (และ price_history จะถูกลบตาม cascade ถ้า FK ตั้งไว้)
+ */
+async function deleteProduct(productId) {
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', productId);
+  if (error) throw error;
+}
+
+/**
  * อัปเดต current_cost และ image_url ของสินค้า
  */
 async function updateProductCost(productId, newCost, imageUrl = null) {
@@ -231,6 +242,7 @@ module.exports = {
   getProductByMatch,
   upsertProduct,
   updateProduct,
+  deleteProduct,
   updateProductCost,
   // price history
   addPriceHistory,

@@ -3,7 +3,7 @@
 const express = require('express');
 const router  = express.Router();
 const {
-  getProducts, upsertProduct, updateProduct,
+  getProducts, upsertProduct, updateProduct, deleteProduct,
   getOrders, updateOrderStatus,
   getPriceHistory,
 } = require('./supabase');
@@ -44,6 +44,16 @@ router.patch('/products/:id', async (req, res) => {
     }
     const product = await updateProduct(req.params.id, updates);
     res.json(product);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/products/:id
+router.delete('/products/:id', async (req, res) => {
+  try {
+    await deleteProduct(req.params.id);
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
