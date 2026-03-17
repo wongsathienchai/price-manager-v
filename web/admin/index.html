@@ -253,7 +253,10 @@
 <!-- Tab: สินค้า -->
 <div id="tab-products" class="tab-content active">
   <div class="filter-bar">
-    <input type="text" id="search-input" placeholder="🔍 ค้นหาชื่อ/แบรนด์..." oninput="filterProducts()">
+    <input type="text" id="search-input" placeholder="🔍 ค้นหาชื่อสินค้า..." oninput="filterProducts()">
+    <select id="brand-filter" onchange="filterProducts()">
+      <option value="">🏷️ ทุกแบรนด์</option>
+    </select>
     <select id="origin-filter" onchange="filterProducts()">
       <option value="">🌏 ทั้งหมด</option>
       <option value="เกาหลี">🇰🇷 เกาหลี</option>
@@ -463,6 +466,7 @@ function switchTab(name) {
 async function loadProducts() {
   try {
     allProducts = await api('/products');
+    populateBrandFilter();
     renderProducts(allProducts);
   } catch (e) {
     document.getElementById('products-list').innerHTML =
@@ -471,14 +475,24 @@ async function loadProducts() {
 }
 
 function filterProducts() {
-  const q    = document.getElementById('search-input').value.toLowerCase();
-  const org  = document.getElementById('origin-filter').value;
-  const avail= document.getElementById('avail-filter').value;
-  let list   = allProducts;
-  if (q)     list = list.filter(p => (p.name+p.brand+p.shade).toLowerCase().includes(q));
-  if (org)   list = list.filter(p => p.origin === org);
+  const q     = document.getElementById('search-input').value.toLowerCase();
+  const brand = document.getElementById('brand-filter').value;
+  const org   = document.getElementById('origin-filter').value;
+  const avail = document.getElementById('avail-filter').value;
+  let list    = allProducts;
+  if (q)      list = list.filter(p => (p.name+(p.shade||'')).toLowerCase().includes(q));
+  if (brand)  list = list.filter(p => p.brand === brand);
+  if (org)    list = list.filter(p => p.origin === org);
   if (avail !== '') list = list.filter(p => String(p.is_available) === avail);
   renderProducts(list);
+}
+
+function populateBrandFilter() {
+  const brands = [...new Set(allProducts.map(p => p.brand).filter(Boolean))].sort();
+  const sel = document.getElementById('brand-filter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">🏷️ ทุกแบรนด์</option>' +
+    brands.map(b => `<option value="${b}"${b===current?' selected':''}>${b}</option>`).join('');
 }
 
 function renderProducts(list) {
