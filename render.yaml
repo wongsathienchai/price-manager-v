@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: price-manager
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # ตั้งค่าตัวนี้ใน Render Dashboard → Environment
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_LOGIN_CHANNEL_ID
+        sync: false
+      - key: LINE_LOGIN_CHANNEL_SECRET
+        sync: false
+      - key: LINE_NOTIFY_TOKEN
+        sync: false
+      - key: SUPPLIER_LINE_USER_ID
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false

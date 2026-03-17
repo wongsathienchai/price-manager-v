@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Price Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #C2587A;
+    --accent:  #7B5EA7;
+    --bg:      #FFF5F8;
+    --card:    #FFFFFF;
+    --border:  #F0D6DF;
+    --text:    #2D1B28;
+    --muted:   #9E7A8A;
+    --green:   #27AE60;
+    --red:     #E74C3C;
+    --yellow:  #F39C12;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Sarabun', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+
+  /* ---- Login overlay ---- */
+  #login-overlay {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center; z-index: 999;
+  }
+  #login-overlay.hidden { display: none; }
+  .login-box {
+    background: var(--card); border-radius: 16px; padding: 32px 24px;
+    width: 320px; box-shadow: 0 4px 20px rgba(194,88,122,.15);
+    text-align: center;
+  }
+  .login-box h1 { font-size: 22px; color: var(--primary); margin-bottom: 8px; }
+  .login-box p  { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .login-box input {
+    width: 100%; padding: 12px 16px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-size: 15px; font-family: inherit;
+    margin-bottom: 12px; outline: none;
+  }
+  .login-box input:focus { border-color: var(--primary); }
+  .login-box button {
+    width: 100%; padding: 13px; background: var(--primary); color: #fff;
+    border: none; border-radius: 10px; font-size: 16px; font-family: inherit;
+    font-weight: 600; cursor: pointer; min-height: 48px;
+  }
+  #login-error { color: var(--red); font-size: 13px; margin-top: 8px; }
+
+  /* ---- Header ---- */
+  header {
+    background: var(--primary); color: #fff; padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header span { font-size: 13px; opacity: .85; }
+  .logout-btn {
+    background: rgba(255,255,255,.2); border: none; color: #fff;
+    padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* ---- Tabs ---- */
+  .tabs {
+    display: flex; background: var(--card);
+    border-bottom: 2px solid var(--border); overflow-x: auto;
+    position: sticky; top: 52px; z-index: 9;
+  }
+  .tab-btn {
+    flex: 1; min-width: 80px; padding: 12px 8px; border: none; background: transparent;
+    font-family: inherit; font-size: 13px; color: var(--muted);
+    cursor: pointer; border-bottom: 3px solid transparent; transition: all .2s;
+    white-space: nowrap;
+  }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+  /* ---- Content ---- */
+  .tab-content { display: none; padding: 16px; }
+  .tab-content.active { display: block; }
+
+  /* ---- Cards ---- */
+  .card {
+    background: var(--card); border-radius: 12px; padding: 16px;
+    margin-bottom: 12px; box-shadow: 0 1px 6px rgba(194,88,122,.08);
+  }
+
+  /* ---- Search/Filter bar ---- */
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filter-bar input, .filter-bar select {
+    flex: 1; min-width: 120px; padding: 10px 12px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 14px; font-family: inherit; background: var(--card); outline: none;
+  }
+  .filter-bar input:focus, .filter-bar select:focus { border-color: var(--primary); }
+
+  /* ---- Product card ---- */
+  .product-card {
+    background: var(--card); border-radius: 12px; padding: 14px;
+    margin-bottom: 10px; box-shadow: 0 1px 6px rgba(194,88,122,.08);
+    border-left: 4px solid var(--border);
+  }
+  .product-card.unavailable { border-left-color: #ccc; opacity: .7; }
+  .product-card.available   { border-left-color: var(--primary); }
+
+  .product-name { font-weight: 600; font-size: 15px; }
+  .product-meta { font-size: 13px; color: var(--muted); margin: 2px 0 10px; }
+
+  .product-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .field-group label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; font-weight: 600; text-transform: uppercase; }
+  .field-group input {
+    width: 100%; padding: 8px 10px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 14px; font-family: inherit; outline: none;
+  }
+  .field-group input:focus { border-color: var(--primary); }
+
+  .product-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    padding: 8px 14px; border-radius: 8px; border: none; font-size: 13px;
+    font-family: inherit; font-weight: 600; cursor: pointer; min-height: 36px;
+    transition: opacity .15s;
+  }
+  .btn:active { opacity: .75; }
+  .btn-primary  { background: var(--primary); color: #fff; }
+  .btn-accent   { background: var(--accent); color: #fff; }
+  .btn-gray     { background: #EEE; color: var(--text); }
+  .btn-green    { background: var(--green); color: #fff; }
+  .btn-red      { background: var(--red); color: #fff; }
+  .btn-outline  { background: transparent; border: 1.5px solid var(--primary); color: var(--primary); }
+
+  /* ---- Toggle ---- */
+  .toggle-row { display: flex; align-items: center; gap: 10px; }
+  .toggle {
+    position: relative; width: 44px; height: 24px; flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0; background: #ccc; border-radius: 24px; cursor: pointer;
+    transition: .2s;
+  }
+  .toggle-slider:before {
+    content: ''; position: absolute; width: 18px; height: 18px;
+    left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--green); }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+  /* ---- Order card ---- */
+  .order-card {
+    background: var(--card); border-radius: 12px; padding: 14px;
+    margin-bottom: 10px; box-shadow: 0 1px 6px rgba(194,88,122,.08);
+  }
+  .order-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .order-customer { font-weight: 600; }
+  .order-time { font-size: 12px; color: var(--muted); }
+  .order-items-list { font-size: 13px; color: var(--muted); margin: 6px 0 10px; line-height: 1.6; }
+  .order-total { font-weight: 700; font-size: 16px; color: var(--primary); margin-bottom: 10px; }
+  .order-actions { display: flex; gap: 8px; }
+
+  .status-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+  }
+  .status-pending   { background: #FEF3C7; color: #92400E; }
+  .status-confirmed { background: #D1FAE5; color: #065F46; }
+  .status-cancelled { background: #FEE2E2; color: #991B1B; }
+
+  /* ---- Price History ---- */
+  .history-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  .history-row:last-child { border-bottom: none; }
+  .history-price { font-weight: 700; font-size: 16px; }
+  .history-change { font-size: 13px; font-weight: 600; }
+  .change-up   { color: var(--red); }
+  .change-down { color: var(--green); }
+  .change-same { color: var(--muted); }
+
+  /* ---- Settings ---- */
+  .setting-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-weight: 600; }
+  .setting-desc  { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .setting-input {
+    width: 100px; padding: 8px 10px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 14px; font-family: inherit; text-align: right; outline: none;
+  }
+  .setting-input:focus { border-color: var(--primary); }
+
+  /* ---- Loading / Empty ---- */
+  .loading { text-align: center; padding: 40px; color: var(--muted); }
+  .empty   { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+  /* ---- Toast ---- */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: #2D1B28; color: #fff; padding: 12px 20px; border-radius: 10px;
+    font-size: 14px; transition: transform .3s; z-index: 999; white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ---- Modal (ประวัติราคา) ---- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 100; opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: var(--card); border-radius: 20px 20px 0 0;
+    padding: 20px; width: 100%; max-width: 480px; max-height: 80vh;
+    overflow-y: auto; transform: translateY(100%); transition: transform .3s;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+  .modal-close { float: right; cursor: pointer; font-size: 20px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- Login Overlay -->
+<div id="login-overlay">
+  <div class="login-box">
+    <h1>🌸 Price Manager</h1>
+    <p>Admin Panel — ใส่รหัสผ่านเพื่อเข้าใช้งาน</p>
+    <input type="password" id="pwd-input" placeholder="รหัสผ่าน" />
+    <button onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <h1>🌸 Price Manager</h1>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span id="header-time"></span>
+    <button class="logout-btn" onclick="doLogout()">ออก</button>
+  </div>
+</header>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('products')">📦 สินค้า</button>
+  <button class="tab-btn" onclick="switchTab('orders')">📋 ออเดอร์</button>
+  <button class="tab-btn" onclick="switchTab('history')">🖼️ ราคา</button>
+  <button class="tab-btn" onclick="switchTab('settings')">⚙️ ตั้งค่า</button>
+</div>
+
+<!-- Tab: สินค้า -->
+<div id="tab-products" class="tab-content active">
+  <div class="filter-bar">
+    <input type="text" id="search-input" placeholder="🔍 ค้นหาชื่อ/แบรนด์..." oninput="filterProducts()">
+    <select id="origin-filter" onchange="filterProducts()">
+      <option value="">🌏 ทั้งหมด</option>
+      <option value="เกาหลี">🇰🇷 เกาหลี</option>
+      <option value="ญี่ปุ่น">🇯🇵 ญี่ปุ่น</option>
+      <option value="Counter">✨ Counter</option>
+      <option value="อื่นๆ">อื่นๆ</option>
+    </select>
+    <select id="avail-filter" onchange="filterProducts()">
+      <option value="">ทุกสถานะ</option>
+      <option value="true">เปิดขาย</option>
+      <option value="false">ปิดขาย</option>
+    </select>
+  </div>
+  <div id="products-count" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
+  <div id="products-list"><div class="loading">กำลังโหลด...</div></div>
+</div>
+
+<!-- Tab: ออเดอร์ -->
+<div id="tab-orders" class="tab-content">
+  <div class="filter-bar">
+    <select id="order-status-filter" onchange="loadOrders()">
+      <option value="">ทุกสถานะ</option>
+      <option value="pending">รอยืนยัน</option>
+      <option value="confirmed">ยืนยันแล้ว</option>
+      <option value="cancelled">ยกเลิก</option>
+    </select>
+  </div>
+  <div id="orders-list"><div class="loading">กำลังโหลด...</div></div>
+</div>
+
+<!-- Tab: ประวัติราคา -->
+<div id="tab-history" class="tab-content">
+  <div class="filter-bar">
+    <select id="history-product-select" onchange="loadHistoryForProduct()">
+      <option value="">-- เลือกสินค้า --</option>
+    </select>
+  </div>
+  <div id="history-list"><div class="empty">เลือกสินค้าเพื่อดูประวัติราคา</div></div>
+</div>
+
+<!-- Tab: ตั้งค่า -->
+<div id="tab-settings" class="tab-content">
+  <div class="card">
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">ชื่อร้าน</div>
+        <div class="setting-desc">แสดงในหน้าร้านลูกค้า</div>
+      </div>
+      <input class="setting-input" style="width:150px" type="text" id="set-shop-name" placeholder="ชื่อร้าน">
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Margin เริ่มต้น (%)</div>
+        <div class="setting-desc">ใช้คำนวณราคาขายเริ่มต้น</div>
+      </div>
+      <input class="setting-input" type="number" id="set-margin" min="0" max="200" placeholder="35">
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">แจ้งเตือนราคาเปลี่ยน (%)</div>
+        <div class="setting-desc">Push แจ้งเจ้าของถ้าราคาขึ้นเกิน</div>
+      </div>
+      <input class="setting-input" type="number" id="set-threshold" min="0" max="100" placeholder="30">
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Backend URL</div>
+        <div class="setting-desc">URL ของ server (สำหรับส่ง API)</div>
+      </div>
+      <input class="setting-input" style="width:180px;font-size:12px" type="text" id="set-server-url" placeholder="http://localhost:3000">
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn btn-primary" onclick="saveSettings()" style="width:100%;min-height:48px;font-size:16px">💾 บันทึกการตั้งค่า</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:8px">
+    <div style="font-weight:600;margin-bottom:12px">ℹ️ ข้อมูลระบบ</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.8">
+      <div>Server: <span id="info-server" style="color:var(--text)">-</span></div>
+      <div>จำนวนสินค้า: <span id="info-products" style="color:var(--text)">-</span></div>
+      <div>ออเดอร์รอยืนยัน: <span id="info-pending" style="color:var(--text)">-</span></div>
+    </div>
+    <button class="btn btn-outline" style="margin-top:12px;width:100%" onclick="loadSystemInfo()">🔄 รีเฟรช</button>
+  </div>
+</div>
+
+<!-- Modal: ประวัติราคา -->
+<div class="modal-overlay" id="history-modal">
+  <div class="modal">
+    <span class="modal-close" onclick="closeModal()">✕</span>
+    <div class="modal-title" id="modal-title">ประวัติราคา</div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ---- Config ---- //
+const DEFAULT_SERVER = 'http://localhost:3000';
+let API_BASE = '';
+let ADMIN_SECRET = '';
+let allProducts = [];
+let allOrders   = [];
+
+// ---- Init ---- //
+window.onload = () => {
+  const saved = localStorage.getItem('pm_secret');
+  if (saved) { ADMIN_SECRET = saved; hideLogin(); init(); }
+  updateClock();
+  setInterval(updateClock, 1000);
+  loadSettings();
+};
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('header-time').textContent =
+    now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ---- Login ---- //
+document.getElementById('pwd-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+async function doLogin() {
+  const pwd = document.getElementById('pwd-input').value.trim();
+  if (!pwd) return;
+  const serverUrl = loadSettings().serverUrl || DEFAULT_SERVER;
+  try {
+    const res = await fetch(`${serverUrl}/health`, {
+      headers: { 'X-Admin-Secret': pwd }
+    });
+    // ลองเรียก admin endpoint จริง
+    const testRes = await fetch(`${serverUrl}/api/admin/products`, {
+      headers: { 'X-Admin-Secret': pwd }
+    });
+    if (testRes.status === 401) {
+      document.getElementById('login-error').textContent = '❌ รหัสผ่านไม่ถูกต้อง';
+      return;
+    }
+    ADMIN_SECRET = pwd;
+    localStorage.setItem('pm_secret', pwd);
+    hideLogin();
+    init();
+  } catch {
+    document.getElementById('login-error').textContent = '❌ ไม่สามารถเชื่อมต่อ server ได้';
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem('pm_secret');
+  ADMIN_SECRET = '';
+  document.getElementById('login-overlay').classList.remove('hidden');
+  document.getElementById('pwd-input').value = '';
+  document.getElementById('login-error').textContent = '';
+}
+
+function hideLogin() {
+  document.getElementById('login-overlay').classList.add('hidden');
+}
+
+// ---- API helper ---- //
+function getServerUrl() {
+  return (localStorage.getItem('pm_server_url') || DEFAULT_SERVER).replace(/\/$/, '');
+}
+
+async function api(path, method = 'GET', body) {
+  const url = `${getServerUrl()}/api/admin${path}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Secret': ADMIN_SECRET,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json();
+}
+
+// ---- Init ---- //
+async function init() {
+  await loadProducts();
+  loadSystemInfo();
+}
+
+// ---- Tab switching ---- //
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+  if (name === 'orders')   loadOrders();
+  if (name === 'history')  populateHistorySelect();
+  if (name === 'settings') loadSystemInfo();
+}
+
+// ============================================================
+// PRODUCTS TAB
+// ============================================================
+async function loadProducts() {
+  try {
+    allProducts = await api('/products');
+    renderProducts(allProducts);
+  } catch (e) {
+    document.getElementById('products-list').innerHTML =
+      `<div class="empty">❌ โหลดสินค้าไม่ได้: ${e.message}</div>`;
+  }
+}
+
+function filterProducts() {
+  const q    = document.getElementById('search-input').value.toLowerCase();
+  const org  = document.getElementById('origin-filter').value;
+  const avail= document.getElementById('avail-filter').value;
+  let list   = allProducts;
+  if (q)     list = list.filter(p => (p.name+p.brand+p.shade).toLowerCase().includes(q));
+  if (org)   list = list.filter(p => p.origin === org);
+  if (avail !== '') list = list.filter(p => String(p.is_available) === avail);
+  renderProducts(list);
+}
+
+function renderProducts(list) {
+  const el = document.getElementById('products-list');
+  document.getElementById('products-count').textContent = `แสดง ${list.length} จาก ${allProducts.length} รายการ`;
+  if (!list.length) { el.innerHTML = '<div class="empty">ไม่พบสินค้า</div>'; return; }
+  el.innerHTML = list.map(p => productCard(p)).join('');
+}
+
+function productCard(p) {
+  const label = p.shade ? `${p.brand} ${p.name} (${p.shade})` : `${p.brand} ${p.name}`;
+  const orig  = { เกาหลี:'🇰🇷', ญี่ปุ่น:'🇯🇵', Counter:'✨', อื่นๆ:'🌐' }[p.origin] || '';
+  return `
+  <div class="product-card ${p.is_available ? 'available' : 'unavailable'}" id="pc-${p.id}">
+    <div class="product-name">${orig} ${label}</div>
+    <div class="product-meta">${p.product_type || ''} ${p.size ? '· '+p.size : ''} · ต้นทุน ${p.current_cost ?? '-'}฿</div>
+    <div class="product-fields">
+      <div class="field-group">
+        <label>ราคาขาย (฿)</label>
+        <input type="number" id="sp-${p.id}" value="${p.sell_price ?? ''}" min="0" placeholder="ราคาขาย">
+      </div>
+      <div class="field-group">
+        <label>สต็อก (ชิ้น)</label>
+        <input type="number" id="st-${p.id}" value="${p.stock ?? 0}" min="0" placeholder="สต็อก">
+      </div>
+    </div>
+    <div class="toggle-row" style="margin-bottom:10px">
+      <label class="toggle">
+        <input type="checkbox" id="av-${p.id}" ${p.is_available ? 'checked' : ''} onchange="quickToggle('${p.id}')">
+        <span class="toggle-slider"></span>
+      </label>
+      <span style="font-size:13px">${p.is_available ? '🟢 เปิดขาย' : '⚫ ปิดขาย'}</span>
+    </div>
+    <div class="product-actions">
+      <button class="btn btn-primary" onclick="saveProduct('${p.id}')">💾 บันทึก</button>
+      <button class="btn btn-gray" onclick="showHistory('${p.id}','${label}')">📈 ประวัติ</button>
+    </div>
+  </div>`;
+}
+
+async function saveProduct(id) {
+  const sell_price   = parseFloat(document.getElementById(`sp-${id}`).value) || null;
+  const stock        = parseInt(document.getElementById(`st-${id}`).value) || 0;
+  const is_available = document.getElementById(`av-${id}`).checked;
+  try {
+    await api(`/products/${id}`, 'PATCH', { sell_price, stock, is_available });
+    showToast('✅ บันทึกแล้ว');
+    const idx = allProducts.findIndex(p => p.id === id);
+    if (idx >= 0) Object.assign(allProducts[idx], { sell_price, stock, is_available });
+  } catch (e) { showToast('❌ ' + e.message); }
+}
+
+async function quickToggle(id) {
+  const is_available = document.getElementById(`av-${id}`).checked;
+  try {
+    await api(`/products/${id}`, 'PATCH', { is_available });
+    showToast(is_available ? '🟢 เปิดขายแล้ว' : '⚫ ปิดขายแล้ว');
+    const idx = allProducts.findIndex(p => p.id === id);
+    if (idx >= 0) allProducts[idx].is_available = is_available;
+    const card = document.getElementById(`pc-${id}`);
+    if (card) {
+      card.className = `product-card ${is_available ? 'available' : 'unavailable'}`;
+      card.querySelector('.toggle-row span').textContent = is_available ? '🟢 เปิดขาย' : '⚫ ปิดขาย';
+    }
+  } catch (e) { showToast('❌ ' + e.message); }
+}
+
+// ============================================================
+// ORDERS TAB
+// ============================================================
+async function loadOrders() {
+  const status = document.getElementById('order-status-filter').value;
+  const el = document.getElementById('orders-list');
+  el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try {
+    allOrders = await api(`/orders${status ? '?status='+status : ''}`);
+    renderOrders(allOrders);
+  } catch (e) {
+    el.innerHTML = `<div class="empty">❌ ${e.message}</div>`;
+  }
+}
+
+function renderOrders(list) {
+  const el = document.getElementById('orders-list');
+  if (!list.length) { el.innerHTML = '<div class="empty">ไม่มีออเดอร์</div>'; return; }
+  el.innerHTML = list.map(o => orderCard(o)).join('');
+}
+
+function orderCard(o) {
+  const items = (o.order_items || []).map(i =>
+    `• ${i.product_name}${i.product_shade ? ` (${i.product_shade})` : ''} x${i.quantity} = ${i.subtotal}฿`
+  ).join('\n');
+  const dt = new Date(o.created_at).toLocaleString('th-TH', { dateStyle:'short', timeStyle:'short' });
+  const badge = { pending:'status-pending', confirmed:'status-confirmed', cancelled:'status-cancelled' }[o.status];
+  const label = { pending:'รอยืนยัน', confirmed:'ยืนยันแล้ว', cancelled:'ยกเลิก' }[o.status];
+  return `
+  <div class="order-card" id="oc-${o.id}">
+    <div class="order-header">
+      <div>
+        <div class="order-customer">👤 ${o.customer_name}</div>
+        <div class="order-time">${dt}</div>
+      </div>
+      <span class="status-badge ${badge}">${label}</span>
+    </div>
+    <div class="order-items-list" style="white-space:pre-line">${items || 'ไม่มีรายการ'}</div>
+    ${o.note ? `<div style="font-size:13px;color:var(--muted);margin-bottom:8px">📝 ${o.note}</div>` : ''}
+    <div class="order-total">ยอดรวม ${o.total_amount ?? 0}฿</div>
+    <div class="order-actions">
+      ${o.status === 'pending' ? `
+        <button class="btn btn-green" onclick="changeOrderStatus('${o.id}','confirmed')">✅ ยืนยัน</button>
+        <button class="btn btn-red"   onclick="changeOrderStatus('${o.id}','cancelled')">❌ ยกเลิก</button>
+      ` : o.status === 'confirmed' ? `
+        <button class="btn btn-red"   onclick="changeOrderStatus('${o.id}','cancelled')">❌ ยกเลิก</button>
+      ` : `
+        <button class="btn btn-gray"  onclick="changeOrderStatus('${o.id}','pending')">↩️ คืนสถานะ</button>
+      `}
+    </div>
+  </div>`;
+}
+
+async function changeOrderStatus(id, status) {
+  try {
+    await api(`/orders/${id}`, 'PATCH', { status });
+    showToast({ confirmed:'✅ ยืนยันออเดอร์แล้ว', cancelled:'❌ ยกเลิกออเดอร์แล้ว', pending:'↩️ คืนสถานะแล้ว' }[status]);
+    loadOrders();
+  } catch (e) { showToast('❌ ' + e.message); }
+}
+
+// ============================================================
+// PRICE HISTORY TAB
+// ============================================================
+function populateHistorySelect() {
+  const sel = document.getElementById('history-product-select');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">-- เลือกสินค้า --</option>';
+  allProducts.forEach(p => {
+    const label = p.shade ? `${p.brand} ${p.name} (${p.shade})` : `${p.brand} ${p.name}`;
+    sel.innerHTML += `<option value="${p.id}">${label}</option>`;
+  });
+  if (current) sel.value = current;
+}
+
+async function loadHistoryForProduct() {
+  const id = document.getElementById('history-product-select').value;
+  const el = document.getElementById('history-list');
+  if (!id) { el.innerHTML = '<div class="empty">เลือกสินค้าเพื่อดูประวัติราคา</div>'; return; }
+  el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try {
+    const history = await api(`/price-history/${id}`);
+    renderHistory(history, el);
+  } catch (e) { el.innerHTML = `<div class="empty">❌ ${e.message}</div>`; }
+}
+
+function renderHistory(history, el) {
+  if (!history.length) { el.innerHTML = '<div class="empty">ยังไม่มีประวัติราคา</div>'; return; }
+  el.innerHTML = history.map((h, i) => {
+    const prev  = history[i + 1];
+    const dt    = new Date(h.created_at).toLocaleString('th-TH', { dateStyle:'short', timeStyle:'short' });
+    let changeHtml = '';
+    if (prev) {
+      const pct = Math.round(((h.cost_price - prev.cost_price) / prev.cost_price) * 100);
+      if (pct > 0) changeHtml = `<span class="history-change change-up">▲ ${pct}%</span>`;
+      else if (pct < 0) changeHtml = `<span class="history-change change-down">▼ ${Math.abs(pct)}%</span>`;
+      else changeHtml = `<span class="history-change change-same">— เท่าเดิม</span>`;
+    }
+    return `
+    <div class="history-row">
+      <div>
+        <div class="history-price">${h.cost_price}฿</div>
+        <div style="font-size:12px;color:var(--muted)">${dt} · ${h.source}</div>
+        ${h.note ? `<div style="font-size:12px;color:var(--muted)">${h.note}</div>` : ''}
+      </div>
+      <div style="text-align:right">
+        ${changeHtml}
+        ${h.agent_confidence != null ? `<div style="font-size:12px;color:var(--muted)">${Math.round(h.agent_confidence*100)}% มั่นใจ</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function showHistory(productId, label) {
+  document.getElementById('modal-title').textContent = `📈 ${label}`;
+  const body = document.getElementById('modal-body');
+  body.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  document.getElementById('history-modal').classList.add('open');
+  try {
+    const history = await api(`/price-history/${productId}`);
+    renderHistory(history, body);
+  } catch (e) { body.innerHTML = `<div class="empty">❌ ${e.message}</div>`; }
+}
+
+function closeModal() {
+  document.getElementById('history-modal').classList.remove('open');
+}
+document.getElementById('history-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+// ============================================================
+// SETTINGS TAB
+// ============================================================
+function loadSettings() {
+  const s = JSON.parse(localStorage.getItem('pm_settings') || '{}');
+  if (document.getElementById('set-shop-name')) {
+    document.getElementById('set-shop-name').value  = s.shopName    || '';
+    document.getElementById('set-margin').value     = s.margin      || 35;
+    document.getElementById('set-threshold').value  = s.threshold   || 30;
+    document.getElementById('set-server-url').value = s.serverUrl   || DEFAULT_SERVER;
+  }
+  return s;
+}
+
+function saveSettings() {
+  const s = {
+    shopName:  document.getElementById('set-shop-name').value,
+    margin:    document.getElementById('set-margin').value,
+    threshold: document.getElementById('set-threshold').value,
+    serverUrl: document.getElementById('set-server-url').value || DEFAULT_SERVER,
+  };
+  localStorage.setItem('pm_settings', JSON.stringify(s));
+  localStorage.setItem('pm_server_url', s.serverUrl);
+  showToast('💾 บันทึกการตั้งค่าแล้ว');
+}
+
+async function loadSystemInfo() {
+  try {
+    const serverUrl = getServerUrl();
+    const res = await fetch(`${serverUrl}/health`);
+    const data = await res.json();
+    document.getElementById('info-server').textContent = data.status === 'ok' ? '✅ ออนไลน์' : '❌ ออฟไลน์';
+  } catch {
+    document.getElementById('info-server').textContent = '❌ เชื่อมต่อไม่ได้';
+  }
+  document.getElementById('info-products').textContent = allProducts.length + ' รายการ';
+  const pending = allOrders.filter(o => o.status === 'pending').length;
+  document.getElementById('info-pending').textContent = pending + ' ออเดอร์';
+}
+
+// ---- Toast ---- //
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

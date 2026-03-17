@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(\"/d/Web-price-Cosmetic/price-manager-v3/.env\":*)",
+      "Bash(node -e \":*)",
+      "Bash(npm install:*)",
+      "Bash(git --version)"
+    ]
+  }
+}

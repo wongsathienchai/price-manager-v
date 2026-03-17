@@ -1,0 +1,9 @@
+# Environment variables — ห้าม commit เด็ดขาด
+.env
+
+# Node modules
+server/node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db

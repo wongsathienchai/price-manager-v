@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ร้านค้า</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #E91E8C;
+    --accent:  #FF6B9D;
+    --bg:      #FFFFFF;
+    --card:    #FFFFFF;
+    --border:  #F0E0EA;
+    --text:    #1A1A2E;
+    --muted:   #888;
+    --light:   #FFF0F6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Sarabun', sans-serif; background: #F8F8F8; color: var(--text); font-size: 15px; }
+
+  /* ---- Login Page ---- */
+  #page-login {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; background: var(--bg); padding: 24px;
+  }
+  #page-login .logo { font-size: 48px; margin-bottom: 12px; }
+  #page-login h1 { font-size: 26px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+  #page-login p { color: var(--muted); font-size: 14px; margin-bottom: 40px; text-align: center; }
+  .line-btn {
+    display: flex; align-items: center; gap: 12px;
+    background: #06C755; color: #fff; border: none;
+    padding: 16px 32px; border-radius: 50px; font-size: 17px;
+    font-family: inherit; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(6,199,85,.35); width: 100%; max-width: 300px;
+    justify-content: center; min-height: 56px;
+  }
+  .line-btn svg { width: 28px; height: 28px; flex-shrink: 0; }
+
+  /* ---- Header ---- */
+  header {
+    background: var(--bg); padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 20;
+    box-shadow: 0 1px 8px rgba(0,0,0,.08);
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+  .shop-title { font-size: 16px; font-weight: 700; color: var(--primary); }
+  .cart-btn {
+    position: relative; background: var(--light); border: none;
+    width: 44px; height: 44px; border-radius: 50%; font-size: 20px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .cart-count {
+    position: absolute; top: -2px; right: -2px;
+    background: var(--primary); color: #fff;
+    font-size: 11px; font-weight: 700; min-width: 18px; height: 18px;
+    border-radius: 9px; display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; display: none;
+  }
+  .cart-count.show { display: flex; }
+
+  /* ---- Filter tabs ---- */
+  .filter-tabs {
+    display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  .filter-tabs::-webkit-scrollbar { display: none; }
+  .filter-tab {
+    padding: 7px 16px; border-radius: 20px; border: 1.5px solid var(--border);
+    background: var(--bg); font-family: inherit; font-size: 13px; cursor: pointer;
+    white-space: nowrap; font-weight: 500; color: var(--muted); transition: all .15s;
+  }
+  .filter-tab.active {
+    background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700;
+  }
+
+  /* ---- Product grid ---- */
+  #page-shop { display: none; }
+  .products-grid { padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .product-item {
+    background: var(--card); border-radius: 14px; padding: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.06); position: relative;
+  }
+  .product-item .origin-tag {
+    font-size: 10px; color: var(--muted); margin-bottom: 4px;
+  }
+  .product-item .name { font-weight: 700; font-size: 14px; line-height: 1.3; margin-bottom: 2px; }
+  .product-item .shade { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .product-item .price { font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 10px; }
+  .product-item .stock-info { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+
+  .qty-row { display: flex; align-items: center; gap: 6px; }
+  .qty-btn {
+    width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border);
+    background: var(--bg); font-size: 18px; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; font-weight: 700; color: var(--primary);
+    flex-shrink: 0;
+  }
+  .qty-display { font-size: 15px; font-weight: 700; min-width: 24px; text-align: center; }
+  .add-cart-btn {
+    flex: 1; background: var(--primary); color: #fff; border: none;
+    border-radius: 20px; padding: 7px 8px; font-size: 13px; font-family: inherit;
+    font-weight: 700; cursor: pointer; min-height: 34px;
+  }
+
+  /* ---- Cart Page ---- */
+  #page-cart { display: none; padding: 16px; }
+  .cart-item {
+    background: var(--card); border-radius: 12px; padding: 14px;
+    margin-bottom: 10px; display: flex; gap: 12px; align-items: flex-start;
+    box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  }
+  .cart-item-info { flex: 1; }
+  .cart-item-name { font-weight: 600; font-size: 14px; }
+  .cart-item-shade { font-size: 12px; color: var(--muted); }
+  .cart-item-price { font-size: 15px; font-weight: 700; color: var(--primary); margin-top: 4px; }
+  .cart-qty-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .cart-remove { color: var(--muted); font-size: 20px; cursor: pointer; padding: 4px; }
+
+  .cart-total-box {
+    background: var(--light); border-radius: 14px; padding: 16px; margin: 16px 0;
+  }
+  .cart-total-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; }
+  .cart-total-row.big { font-size: 18px; font-weight: 700; color: var(--primary); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+  textarea {
+    width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 12px;
+    font-size: 14px; font-family: inherit; resize: none; outline: none; margin-bottom: 16px;
+  }
+  textarea:focus { border-color: var(--primary); }
+
+  .checkout-btn {
+    width: 100%; background: var(--primary); color: #fff; border: none;
+    border-radius: 14px; padding: 16px; font-size: 17px; font-family: inherit;
+    font-weight: 700; cursor: pointer; min-height: 54px;
+    box-shadow: 0 4px 16px rgba(233,30,140,.3);
+  }
+
+  /* ---- Success Page ---- */
+  #page-success {
+    display: none; min-height: 100vh; flex-direction: column;
+    align-items: center; justify-content: center; padding: 24px; text-align: center;
+  }
+  #page-success .icon { font-size: 72px; margin-bottom: 16px; }
+  #page-success h2 { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+  #page-success p { color: var(--muted); margin-bottom: 32px; }
+  .back-btn {
+    background: var(--light); color: var(--primary); border: none; border-radius: 14px;
+    padding: 14px 32px; font-size: 16px; font-family: inherit; font-weight: 700; cursor: pointer;
+  }
+
+  /* ---- Back bar ---- */
+  .back-bar {
+    display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    font-weight: 700; font-size: 16px;
+  }
+  .back-icon { font-size: 20px; cursor: pointer; padding: 4px; }
+
+  /* ---- Loading ---- */
+  .loading { text-align: center; padding: 60px; color: var(--muted); }
+  .empty   { text-align: center; padding: 60px 24px; color: var(--muted); font-size: 14px; }
+
+  /* ---- Bottom spacer (เผื่อ checkout bar) ---- */
+  .bottom-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--bg); padding: 12px 16px;
+    box-shadow: 0 -2px 12px rgba(0,0,0,.08);
+    display: none;
+  }
+  .bottom-bar.show { display: block; }
+  .bottom-bar-btn {
+    width: 100%; background: var(--primary); color: #fff; border: none;
+    border-radius: 14px; padding: 15px; font-size: 16px; font-family: inherit;
+    font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  }
+  .spacer-bottom { height: 80px; }
+</style>
+</head>
+<body>
+
+<!-- ===== Page: Login ===== -->
+<div id="page-login">
+  <div class="logo">🌸</div>
+  <h1 id="shop-name-title">ร้านเครื่องสำอาง</h1>
+  <p>เข้าสู่ระบบเพื่อสั่งสินค้า</p>
+  <button class="line-btn" onclick="loginWithLine()">
+    <svg viewBox="0 0 24 24" fill="white"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.105.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
+    เข้าสู่ระบบด้วย LINE
+  </button>
+</div>
+
+<!-- ===== Page: Shop ===== -->
+<div id="page-shop">
+  <header>
+    <div class="header-left">
+      <img class="avatar" id="user-avatar" src="" alt="" onerror="this.style.display='none'">
+      <div>
+        <div class="shop-title" id="shop-name-header">ร้านเครื่องสำอาง</div>
+        <div style="font-size:12px;color:var(--muted)" id="user-name-header"></div>
+      </div>
+    </div>
+    <button class="cart-btn" onclick="showCart()">
+      🛒
+      <span class="cart-count" id="cart-count">0</span>
+    </button>
+  </header>
+
+  <div class="filter-tabs" id="filter-tabs">
+    <button class="filter-tab active" onclick="filterByOrigin('', this)">🌏 ทั้งหมด</button>
+    <button class="filter-tab" onclick="filterByOrigin('เกาหลี', this)">🇰🇷 เกาหลี</button>
+    <button class="filter-tab" onclick="filterByOrigin('ญี่ปุ่น', this)">🇯🇵 ญี่ปุ่น</button>
+    <button class="filter-tab" onclick="filterByOrigin('Counter', this)">✨ Counter</button>
+  </div>
+
+  <div id="products-grid" class="products-grid">
+    <div class="loading" style="grid-column:1/-1">กำลังโหลดสินค้า...</div>
+  </div>
+  <div class="spacer-bottom"></div>
+
+  <!-- Bottom checkout bar -->
+  <div class="bottom-bar" id="bottom-bar">
+    <button class="bottom-bar-btn" onclick="showCart()">
+      <span>🛒 ดูตะกร้า (<span id="bottom-qty">0</span> ชิ้น)</span>
+      <span id="bottom-total">0฿</span>
+    </button>
+  </div>
+</div>
+
+<!-- ===== Page: Cart ===== -->
+<div id="page-cart">
+  <div class="back-bar">
+    <span class="back-icon" onclick="showShop()">←</span>
+    ตะกร้าสินค้า
+  </div>
+  <div id="cart-items"></div>
+
+  <div id="cart-summary" style="padding:0 16px">
+    <div class="cart-total-box" id="cart-total-box"></div>
+    <textarea id="order-note" rows="3" placeholder="📝 หมายเหตุ (เช่น ที่อยู่จัดส่ง, เวลานัด...)"></textarea>
+    <button class="checkout-btn" onclick="confirmOrder()">✅ ยืนยันสั่งซื้อ</button>
+    <div style="height:24px"></div>
+  </div>
+</div>
+
+<!-- ===== Page: Success ===== -->
+<div id="page-success">
+  <div class="icon">✅</div>
+  <h2>สั่งซื้อเรียบร้อยแล้ว!</h2>
+  <p>เจ้าของร้านจะติดต่อกลับใน Line นะคะ</p>
+  <button class="back-btn" onclick="showShop(); clearCart()">🛍️ ช้อปต่อ</button>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const SERVER = window.location.origin; // same origin เพราะ serve จาก Express
+const SHOP_NAME = localStorage.getItem('pm_shop_name') || 'ร้านเครื่องสำอาง';
+
+// ============================================================
+// STATE
+// ============================================================
+let user      = null;  // { userId, displayName, pictureUrl }
+let products  = [];
+let filtered  = [];
+let cart      = {};    // { productId: quantity }
+let quantities = {};   // { productId: selectedQty } บน product card
+
+// ============================================================
+// INIT
+// ============================================================
+window.onload = async () => {
+  document.querySelectorAll('#shop-name-title, #shop-name-header').forEach(el => {
+    el.textContent = SHOP_NAME;
+  });
+  document.title = SHOP_NAME;
+
+  // ตรวจ Line Login callback (?code=xxx)
+  const params = new URLSearchParams(location.search);
+  if (params.has('code')) {
+    await handleLineCallback(params.get('code'), params.get('state'));
+    return;
+  }
+
+  // ตรวจ session ที่บันทึกไว้
+  const saved = localStorage.getItem('pm_user');
+  if (saved) {
+    user = JSON.parse(saved);
+    await initShop();
+    return;
+  }
+
+  showPage('login');
+};
+
+// ============================================================
+// LINE LOGIN
+// ============================================================
+function loginWithLine() {
+  const state    = Math.random().toString(36).slice(2);
+  const clientId = getLineLoginChannelId();
+  if (!clientId || clientId === 'dummy') {
+    alert('⚠️ ยังไม่ได้ตั้งค่า Line Login Channel ID\nกรุณาตั้งค่าก่อนใช้งาน');
+    return;
+  }
+  localStorage.setItem('line_state', state);
+  const redirectUri = encodeURIComponent(`${SERVER}/shop/`);
+  const url = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&scope=profile%20openid`;
+  location.href = url;
+}
+
+async function handleLineCallback(code, state) {
+  // ตรวจ state
+  if (state !== localStorage.getItem('line_state')) {
+    alert('Security error. กรุณาลองใหม่');
+    showPage('login'); return;
+  }
+  try {
+    const res  = await fetch(`${SERVER}/auth/line?code=${code}&redirect_uri=${encodeURIComponent(`${SERVER}/shop/`)}`);
+    const data = await res.json();
+    if (data.userId) {
+      user = data;
+      localStorage.setItem('pm_user', JSON.stringify(user));
+      history.replaceState({}, '', '/shop/'); // ลบ ?code ออกจาก URL
+      await initShop();
+    } else {
+      alert('Login ไม่สำเร็จ กรุณาลองใหม่');
+      showPage('login');
+    }
+  } catch {
+    alert('Login ไม่สำเร็จ กรุณาลองใหม่');
+    showPage('login');
+  }
+}
+
+function getLineLoginChannelId() {
+  // อ่านจาก meta tag (ฝังตอน serve จาก server) หรือ localStorage
+  return document.querySelector('meta[name="line-channel-id"]')?.content
+    || localStorage.getItem('pm_line_channel_id')
+    || 'dummy';
+}
+
+// ============================================================
+// SHOP
+// ============================================================
+async function initShop() {
+  if (user?.pictureUrl) {
+    const av = document.getElementById('user-avatar');
+    av.src = user.pictureUrl; av.style.display = 'block';
+  }
+  document.getElementById('user-name-header').textContent = user?.displayName || '';
+  showPage('shop');
+  await loadProducts();
+}
+
+async function loadProducts() {
+  try {
+    const res = await fetch(`${SERVER}/api/shop/products`);
+    products  = await res.json();
+    filtered  = [...products];
+    quantities = {};
+    products.forEach(p => { quantities[p.id] = 1; });
+    renderProducts(filtered);
+  } catch {
+    document.getElementById('products-grid').innerHTML =
+      '<div class="empty" style="grid-column:1/-1">❌ โหลดสินค้าไม่ได้</div>';
+  }
+}
+
+function filterByOrigin(origin, btn) {
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filtered = origin ? products.filter(p => p.origin === origin) : [...products];
+  renderProducts(filtered);
+}
+
+function renderProducts(list) {
+  const grid = document.getElementById('products-grid');
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1">ไม่มีสินค้าในหมวดนี้</div>'; return;
+  }
+  grid.innerHTML = list.map(p => productCard(p)).join('');
+}
+
+function productCard(p) {
+  const label = p.shade || '';
+  const orig  = { เกาหลี:'🇰🇷', ญี่ปุ่น:'🇯🇵', Counter:'✨', อื่นๆ:'🌐' }[p.origin] || '';
+  const inCart = cart[p.id] || 0;
+  const qty    = quantities[p.id] || 1;
+  return `
+  <div class="product-item" id="pi-${p.id}">
+    <div class="origin-tag">${orig} ${p.product_type || ''}</div>
+    <div class="name">${p.brand}<br>${p.name}</div>
+    ${label ? `<div class="shade">${label}</div>` : '<div class="shade" style="height:17px"></div>'}
+    <div class="price">${p.sell_price ?? p.current_cost ?? '?'}฿</div>
+    <div class="stock-info">เหลือ ${p.stock} ${p.unit}</div>
+    <div class="qty-row">
+      <button class="qty-btn" onclick="changeQty('${p.id}', -1, ${p.stock})">−</button>
+      <span class="qty-display" id="qty-${p.id}">${qty}</span>
+      <button class="qty-btn" onclick="changeQty('${p.id}', 1, ${p.stock})">+</button>
+    </div>
+    <button class="add-cart-btn" style="margin-top:8px;width:100%" onclick="addToCart('${p.id}')">
+      ${inCart > 0 ? `✅ ในตะกร้า (${inCart})` : '+ ใส่ตะกร้า'}
+    </button>
+  </div>`;
+}
+
+function changeQty(id, delta, maxStock) {
+  const current = quantities[id] || 1;
+  const next    = Math.max(1, Math.min(maxStock, current + delta));
+  quantities[id] = next;
+  const el = document.getElementById(`qty-${id}`);
+  if (el) el.textContent = next;
+}
+
+function addToCart(id) {
+  const qty = quantities[id] || 1;
+  cart[id]  = (cart[id] || 0) + qty;
+  const product = products.find(p => p.id === id);
+  if (product && cart[id] > product.stock) cart[id] = product.stock;
+  quantities[id] = 1;
+  updateCartUI();
+  renderProducts(filtered);
+}
+
+function updateCartUI() {
+  const total = Object.entries(cart).reduce((s, [id, qty]) => {
+    const p = products.find(p => p.id === id);
+    return s + (p ? (p.sell_price ?? p.current_cost ?? 0) * qty : 0);
+  }, 0);
+  const count = Object.values(cart).reduce((s, q) => s + q, 0);
+
+  document.getElementById('cart-count').textContent = count;
+  document.getElementById('cart-count').className   = `cart-count ${count > 0 ? 'show' : ''}`;
+  document.getElementById('bottom-qty').textContent  = count;
+  document.getElementById('bottom-total').textContent = `${total}฿`;
+  document.getElementById('bottom-bar').className     = `bottom-bar ${count > 0 ? 'show' : ''}`;
+}
+
+// ============================================================
+// CART
+// ============================================================
+function showCart() {
+  if (Object.keys(cart).length === 0) return;
+  renderCart();
+  showPage('cart');
+}
+
+function renderCart() {
+  const cartItems = Object.entries(cart)
+    .filter(([,qty]) => qty > 0)
+    .map(([id, qty]) => ({ product: products.find(p => p.id === id), qty }))
+    .filter(({ product }) => product);
+
+  if (!cartItems.length) { showShop(); return; }
+
+  const itemsHtml = cartItems.map(({ product: p, qty }) => {
+    const price = p.sell_price ?? p.current_cost ?? 0;
+    return `
+    <div class="cart-item" id="ci-${p.id}">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${p.brand} ${p.name}</div>
+        ${p.shade ? `<div class="cart-item-shade">${p.shade}</div>` : ''}
+        <div class="cart-item-price">${price}฿ / ${p.unit}</div>
+        <div class="cart-qty-row">
+          <button class="qty-btn" onclick="changeCartQty('${p.id}', -1)">−</button>
+          <span class="qty-display" id="cqty-${p.id}">${qty}</span>
+          <button class="qty-btn" onclick="changeCartQty('${p.id}', 1, ${p.stock})">+</button>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:700;font-size:15px;color:var(--primary)" id="csub-${p.id}">${price * qty}฿</div>
+        <div class="cart-remove" onclick="removeFromCart('${p.id}')">🗑</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('cart-items').innerHTML = itemsHtml;
+
+  const subtotal = cartItems.reduce((s, { product: p, qty }) => s + (p.sell_price ?? p.current_cost ?? 0) * qty, 0);
+  document.getElementById('cart-total-box').innerHTML = `
+    <div class="cart-total-row"><span>สินค้า ${Object.values(cart).reduce((a,b)=>a+b,0)} ชิ้น</span></div>
+    <div class="cart-total-row big"><span>ยอดรวม</span><span>${subtotal}฿</span></div>`;
+}
+
+function changeCartQty(id, delta, maxStock = 99) {
+  const current = cart[id] || 0;
+  const next    = Math.max(0, Math.min(maxStock, current + delta));
+  if (next === 0) { removeFromCart(id); return; }
+  cart[id] = next;
+  const p   = products.find(p => p.id === id);
+  const price = p ? (p.sell_price ?? p.current_cost ?? 0) : 0;
+  const cqty = document.getElementById(`cqty-${id}`);
+  const csub = document.getElementById(`csub-${id}`);
+  if (cqty) cqty.textContent = next;
+  if (csub) csub.textContent = `${price * next}฿`;
+  updateCartUI();
+  // อัปเดต total box
+  renderCart();
+}
+
+function removeFromCart(id) {
+  delete cart[id];
+  updateCartUI();
+  if (Object.keys(cart).length === 0) { showShop(); return; }
+  renderCart();
+}
+
+function clearCart() {
+  cart = {};
+  quantities = {};
+  products.forEach(p => { quantities[p.id] = 1; });
+  updateCartUI();
+}
+
+// ============================================================
+// CHECKOUT
+// ============================================================
+async function confirmOrder() {
+  if (!user) return;
+  const btn  = document.querySelector('.checkout-btn');
+  const note = document.getElementById('order-note').value.trim();
+
+  const items = Object.entries(cart)
+    .filter(([, qty]) => qty > 0)
+    .map(([id, qty]) => {
+      const p     = products.find(p => p.id === id);
+      const price = p.sell_price ?? p.current_cost ?? 0;
+      return {
+        product_id:    p.id,
+        product_name:  p.name,
+        product_shade: p.shade || null,
+        quantity:      qty,
+        unit_price:    price,
+        subtotal:      price * qty,
+      };
+    });
+
+  if (!items.length) return;
+
+  btn.textContent = '⏳ กำลังสั่ง...';
+  btn.disabled    = true;
+
+  try {
+    const res = await fetch(`${SERVER}/api/shop/orders`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        customer_line_id:     user.userId,
+        customer_name:        user.displayName,
+        customer_display_name: user.displayName,
+        note,
+        items,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showPage('success');
+    } else {
+      alert('เกิดข้อผิดพลาด: ' + (data.error || 'ลองใหม่อีกครั้ง'));
+    }
+  } catch {
+    alert('ไม่สามารถเชื่อมต่อ server ได้');
+  } finally {
+    btn.textContent = '✅ ยืนยันสั่งซื้อ';
+    btn.disabled    = false;
+  }
+}
+
+// ============================================================
+// PAGE NAV
+// ============================================================
+function showPage(name) {
+  document.getElementById('page-login').style.display   = name === 'login'   ? 'flex' : 'none';
+  document.getElementById('page-shop').style.display    = name === 'shop'    ? 'block' : 'none';
+  document.getElementById('page-cart').style.display    = name === 'cart'    ? 'block' : 'none';
+  document.getElementById('page-success').style.display = name === 'success' ? 'flex' : 'none';
+}
+
+function showShop() { showPage('shop'); }
+</script>
+</body>
+</html>
