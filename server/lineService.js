@@ -42,20 +42,23 @@ async function replyMessage(replyToken, text) {
   );
 }
 
-// ---- Push แจ้งเจ้าของผ่าน Line Notify ------------------
+// ---- Push แจ้งเจ้าของผ่าน Messaging API ----------------
 
 /**
- * ส่งข้อความแจ้งเจ้าของผ่าน Line Notify
+ * ส่งข้อความแจ้งเจ้าของผ่าน Messaging API push
  * @param {string} message — ข้อความ
  */
 async function pushToOwner(message) {
   await axios.post(
-    'https://notify-api.line.me/api/notify',
-    new URLSearchParams({ message }),
+    'https://api.line.me/v2/bot/message/push',
+    {
+      to: process.env.SUPPLIER_LINE_USER_ID,
+      messages: [{ type: 'text', text: message }],
+    },
     {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Bearer ${process.env.LINE_NOTIFY_TOKEN}`,
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
       },
     }
   );
