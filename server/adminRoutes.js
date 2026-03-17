@@ -3,7 +3,7 @@
 const express = require('express');
 const router  = express.Router();
 const {
-  getProducts, upsertProduct,
+  getProducts, upsertProduct, updateProduct,
   getOrders, updateOrderStatus,
   getPriceHistory,
 } = require('./supabase');
@@ -39,7 +39,10 @@ router.patch('/products/:id', async (req, res) => {
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
-    const product = await upsertProduct({ id: req.params.id, ...updates });
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+    const product = await updateProduct(req.params.id, updates);
     res.json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });

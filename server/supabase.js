@@ -66,6 +66,21 @@ async function upsertProduct(data) {
 }
 
 /**
+ * อัปเดตบางฟิลด์ของสินค้า (ใช้ .update() — ไม่ต้องการ NOT NULL fields ครบ)
+ * ใช้สำหรับ admin PATCH endpoint
+ */
+async function updateProduct(productId, updates) {
+  const { data, error } = await supabase
+    .from('products')
+    .update(updates)
+    .eq('id', productId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
  * อัปเดต current_cost และ image_url ของสินค้า
  */
 async function updateProductCost(productId, newCost, imageUrl = null) {
@@ -215,6 +230,7 @@ module.exports = {
   getProducts,
   getProductByMatch,
   upsertProduct,
+  updateProduct,
   updateProductCost,
   // price history
   addPriceHistory,
