@@ -34,7 +34,7 @@ router.get('/products', async (_req, res) => {
 // PATCH /api/admin/products/:id
 router.patch('/products/:id', async (req, res) => {
   try {
-    const allowed = ['sell_price', 'sell_price_locked', 'stock', 'is_available', 'margin_percent', 'name', 'brand', 'shade', 'product_type', 'origin', 'size', 'unit', 'current_cost'];
+    const allowed = ['sell_price', 'sell_price_locked', 'stock', 'is_available', 'margin_percent', 'name', 'brand', 'shade', 'shade_code', 'product_type', 'origin', 'size', 'unit', 'current_cost'];
     const updates = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
