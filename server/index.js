@@ -58,10 +58,13 @@ app.post('/webhook', async (req, res) => {
   // 1. ต้องตอบ 200 ก่อนเสมอ ป้องกัน Line timeout 30 วินาที
   res.status(200).send('OK');
 
+  // DEBUG: log ทุก request ที่เข้ามา
+  console.log('[webhook] Received request, body size:', req.body?.length ?? 0);
+
   // 2. Verify signature
   const signature = req.headers['x-line-signature'];
   if (!signature || !verifyLineSignature(req.body, signature)) {
-    console.warn('[webhook] Invalid signature — ignored');
+    console.warn('[webhook] Invalid signature — ignored. Has signature:', !!signature);
     return;
   }
 
@@ -75,7 +78,9 @@ app.post('/webhook', async (req, res) => {
   }
 
   // 4. Process แต่ละ event แบบ async (ไม่รอ)
+  console.log('[webhook] Events count:', body.events?.length ?? 0);
   for (const event of body.events || []) {
+    console.log(`[webhook] Event type=${event.type} msgType=${event.message?.type} userId=${event.source?.userId}`);
     if (
       event.type === 'message' &&
       event.message.type === 'image' &&
