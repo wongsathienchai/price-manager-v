@@ -323,7 +323,7 @@
         <div class="setting-label">Backend URL</div>
         <div class="setting-desc">URL ของ server (สำหรับส่ง API)</div>
       </div>
-      <input class="setting-input" style="width:180px;font-size:12px" type="text" id="set-server-url" placeholder="http://localhost:3000">
+      <input class="setting-input" style="width:180px;font-size:12px" type="text" id="set-server-url" placeholder="https://price-manager-v.onrender.com">
     </div>
     <div style="margin-top:16px">
       <button class="btn btn-primary" onclick="saveSettings()" style="width:100%;min-height:48px;font-size:16px">💾 บันทึกการตั้งค่า</button>
@@ -355,7 +355,7 @@
 
 <script>
 // ---- Config ---- //
-const DEFAULT_SERVER = 'http://localhost:3000';
+const DEFAULT_SERVER = window.location.origin;
 let API_BASE = '';
 let ADMIN_SECRET = '';
 let allProducts = [];
