@@ -96,4 +96,60 @@ class GeminiError extends Error {
   }
 }
 
-module.exports = { readPriceFromImage, GeminiError };
+/**
+ * Parse คำแก้ไขจากผู้ใช้ เพื่ออัปเดตข้อมูลสินค้า
+ * @param {Array} products — รายการสินค้าที่ bot เพิ่งบันทึก [{name, brand, shade, price, ...}]
+ * @param {string} userText — ข้อความที่ผู้ใช้พิมมา
+ * @returns {{ index: number, updates: object, intent: string }}
+ */
+async function parseCorrection(products, userText) {
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    generationConfig: { temperature: 0.1 },
+  });
+
+  const productList = products.map((p, i) => {
+    const label = p.shade ? `${p.brand} ${p.name} (${p.shade})` : `${p.brand} ${p.name}`;
+    return `${i + 1}. ${label} — ราคา ${p.price ?? 'ไม่ระบุ'}฿`;
+  }).join('\n');
+
+  const prompt = `สินค้าที่บอทอ่านได้ล่าสุด:
+${productList}
+
+ผู้ใช้พิมแก้ไขว่า: "${userText}"
+
+ตอบเป็น JSON เท่านั้น ห้ามมี markdown หรือข้อความอื่น:
+{
+  "index": 0,
+  "updates": {},
+  "intent": "correction"
+}
+
+กฎ:
+- index คือลำดับสินค้า (0-based) ที่ต้องการแก้ไข ถ้าผู้ใช้บอกว่า "รายการที่ 2" ให้ index = 1 ถ้าไม่ระบุให้ใช้ 0
+- updates ใส่เฉพาะ field ที่ต้องการเปลี่ยน ได้แก่: name, brand, shade, shade_code, product_type, origin, size, price, unit
+- price ต้องเป็น number ไม่ใช่ string
+- intent เป็น "correction" ถ้าผู้ใช้ต้องการแก้ไขข้อมูล
+- intent เป็น "cancel" ถ้าผู้ใช้บอกยกเลิก/ถูกแล้ว/ไม่ต้องแก้
+- intent เป็น "unclear" ถ้าไม่แน่ใจว่าต้องการอะไร`;
+
+  let text;
+  try {
+    const result = await model.generateContent(prompt);
+    text = result.response.text().trim();
+  } catch (err) {
+    if (err.message?.includes('QUOTA_EXCEEDED') || err.status === 429) {
+      throw new GeminiError('QUOTA_EXCEEDED', 'Gemini quota หมด');
+    }
+    throw err;
+  }
+
+  const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  try {
+    return JSON.parse(jsonText);
+  } catch {
+    throw new GeminiError('PARSE_ERROR', `Gemini ตอบไม่ใช่ JSON: ${text.slice(0, 200)}`);
+  }
+}
+
+module.exports = { readPriceFromImage, parseCorrection, GeminiError };

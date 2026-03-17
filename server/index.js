@@ -8,7 +8,7 @@ const express    = require('express');
 const crypto     = require('crypto');
 const path       = require('path');
 const cors       = require('cors');
-const { handleSupplierImage } = require('./agent');
+const { handleSupplierImage, handleSupplierText } = require('./agent');
 const adminRoutes = require('./adminRoutes');
 const shopRoutes  = require('./shopRoutes');
 
@@ -81,13 +81,17 @@ app.post('/webhook', async (req, res) => {
   console.log('[webhook] Events count:', body.events?.length ?? 0);
   for (const event of body.events || []) {
     console.log(`[webhook] Event type=${event.type} msgType=${event.message?.type} userId=${event.source?.userId}`);
-    if (
-      event.type === 'message' &&
-      event.message.type === 'image' &&
-      event.source.userId === process.env.SUPPLIER_LINE_USER_ID
-    ) {
+
+    if (event.type !== 'message') continue;
+    if (event.source.userId !== process.env.SUPPLIER_LINE_USER_ID) continue;
+
+    if (event.message.type === 'image') {
       handleSupplierImage(event).catch(err =>
         console.error('[agent] Unhandled error:', err)
+      );
+    } else if (event.message.type === 'text') {
+      handleSupplierText(event).catch(err =>
+        console.error('[agent] Unhandled text error:', err)
       );
     }
   }

@@ -1,14 +1,37 @@
 // server/agent.js — AI Agent logic หลัก
 // โฟลว์: รับรูปจาก Line → Gemini อ่าน → บันทึก Supabase → Reply แม่ค้า
-const { readPriceFromImage, GeminiError } = require('./gemini');
+const { readPriceFromImage, parseCorrection, GeminiError } = require('./gemini');
 const { downloadImageFromLine, replyMessage, pushToOwner } = require('./lineService');
 const {
   getProductByMatch,
   upsertProduct,
+  updateProduct,
   updateProductCost,
   addPriceHistory,
   uploadImage,
 } = require('./supabase');
+
+// ---- Session store (จำผลล่าสุดของแต่ละ user ไว้ 10 นาที) ----
+const SESSION_TTL = 10 * 60 * 1000;
+const sessions = new Map();
+
+function saveSession(userId, products) {
+  sessions.set(userId, { products, expiresAt: Date.now() + SESSION_TTL });
+}
+
+function getSession(userId) {
+  const session = sessions.get(userId);
+  if (!session) return null;
+  if (Date.now() > session.expiresAt) {
+    sessions.delete(userId);
+    return null;
+  }
+  return session;
+}
+
+function clearSession(userId) {
+  sessions.delete(userId);
+}
 
 // เปลี่ยนต่ำกว่านี้จะ push แจ้งเจ้าของ (30%)
 const PRICE_ALERT_THRESHOLD = 30;
@@ -18,7 +41,8 @@ const PRICE_ALERT_THRESHOLD = 30;
  * เรียกจาก index.js แบบ async (ไม่ block HTTP response)
  */
 async function handleSupplierImage(event) {
-  const { replyToken, message } = event;
+  const { replyToken, message, source } = event;
+  const userId = source.userId;
 
   try {
     // 1. Download รูปจาก Line
@@ -51,6 +75,9 @@ async function handleSupplierImage(event) {
     // 5. Reply กลับแม่ค้า
     const replyText = buildReplyText(results);
     await replyMessage(replyToken, replyText);
+
+    // 5.1 บันทึก session ไว้ให้แก้ไขได้ภายใน 10 นาที
+    saveSession(userId, results);
 
     // 6. แจ้งเจ้าของถ้ามีราคาเปลี่ยนเกิน threshold
     const highChanges = results.filter(
@@ -137,7 +164,7 @@ async function processProduct(item, imageUrl, rawText) {
     });
   }
 
-  return { brand, name, shade, price, isNew, oldCost, changePercent, confidence, isGuessed: !!is_guessed };
+  return { id: product.id, brand, name, shade, price, isNew, oldCost, changePercent, confidence, isGuessed: !!is_guessed };
 }
 
 // ---- สร้างข้อความ Reply ---------------------------------
@@ -187,4 +214,92 @@ function buildAlertText(highChanges) {
 const MSG_CANT_READ =
   '❌ อ่านรูปไม่ได้ครับ กรุณาส่งรูปใหม่ที่ชัดขึ้น\n(รูปอาจมืดเกิน หรือตัวหนังสือเล็กเกินไป)';
 
-module.exports = { handleSupplierImage };
+// ---- จัดการข้อความแก้ไขจากผู้ใช้ -------------------------
+
+/**
+ * รับข้อความแก้ไขจากผู้ใช้ → parse → update Supabase
+ */
+async function handleSupplierText(event) {
+  const { replyToken, message, source } = event;
+  const userId = source.userId;
+  const text = message.text.trim();
+
+  const session = getSession(userId);
+  if (!session) {
+    await replyMessage(replyToken, '📸 กรุณาส่งรูปราคาก่อนนะครับ').catch(() => {});
+    return;
+  }
+
+  let correction;
+  try {
+    correction = await parseCorrection(session.products, text);
+  } catch (err) {
+    console.error('[agent] parseCorrection error:', err.message);
+    await replyMessage(replyToken, '❌ เกิดข้อผิดพลาดในการ parse คำแก้ไข').catch(() => {});
+    return;
+  }
+
+  if (correction.intent === 'cancel') {
+    clearSession(userId);
+    await replyMessage(replyToken, '👍 โอเคครับ ข้อมูลถูกต้องแล้ว').catch(() => {});
+    return;
+  }
+
+  if (correction.intent === 'unclear') {
+    await replyMessage(
+      replyToken,
+      '❓ ไม่เข้าใจครับ ลองพิมแบบนี้นะครับ:\n' +
+      '• "ชื่อเป็น XXX"\n' +
+      '• "ราคา 450"\n' +
+      '• "แบรนด์ CLIO"\n' +
+      '• "รายการที่ 2 ราคา 350"'
+    ).catch(() => {});
+    return;
+  }
+
+  // หาสินค้าที่จะแก้ไข
+  const idx = correction.index ?? 0;
+  const product = session.products[idx];
+
+  if (!product?.id) {
+    await replyMessage(replyToken, `❌ ไม่พบรายการที่ ${idx + 1} ครับ`).catch(() => {});
+    return;
+  }
+
+  if (!correction.updates || Object.keys(correction.updates).length === 0) {
+    await replyMessage(replyToken, '❓ ไม่มีข้อมูลที่จะแก้ไขครับ').catch(() => {});
+    return;
+  }
+
+  try {
+    const updated = await updateProduct(product.id, correction.updates);
+
+    // อัปเดต session ให้ตรงกับข้อมูลล่าสุด
+    session.products[idx] = { ...product, ...correction.updates };
+
+    const label = updated.shade
+      ? `${updated.brand} ${updated.name} (${updated.shade})`
+      : `${updated.brand} ${updated.name}`;
+
+    const fieldNames = {
+      name: 'ชื่อ', brand: 'แบรนด์', shade: 'เฉดสี',
+      shade_code: 'รหัสเฉดสี', product_type: 'ประเภท',
+      origin: 'แหล่งที่มา', size: 'ขนาด', price: 'ราคา', unit: 'หน่วย',
+    };
+    const changedFields = Object.keys(correction.updates)
+      .map(k => `${fieldNames[k] ?? k}: ${correction.updates[k]}`)
+      .join(', ');
+
+    await replyMessage(
+      replyToken,
+      `✅ แก้ไขแล้วครับ\n${label}\n(${changedFields})\n\nจะแก้ไขเพิ่มเติมหรือเปล่าครับ?`
+    ).catch(() => {});
+
+    console.log(`[agent] Corrected product ${product.id}: ${changedFields}`);
+  } catch (err) {
+    console.error('[agent] updateProduct error:', err.message);
+    await replyMessage(replyToken, '❌ แก้ไขไม่สำเร็จ กรุณาลองใหม่').catch(() => {});
+  }
+}
+
+module.exports = { handleSupplierImage, handleSupplierText };
