@@ -47,17 +47,23 @@ product_type ตัวอย่าง:
 ครีม, เซรั่ม, โทนเนอร์, ซันสกรีน, มอยส์เจอร์ไรเซอร์,
 กระเป๋าเครื่องสำอาง, กระเป๋าแบรนด์, ชุดของขวัญ, แปรงแต่งหน้า, อื่นๆ`;
 
+// ลำดับ fallback: ดีสุด → ใช้ได้มากสุด
+// gemini-2.5-flash: คุณภาพดีสุด แต่ free tier 20 RPD
+// gemini-2.0-flash: คุณภาพดี free tier ~1500 RPD
+// gemini-2.0-flash-lite: เร็ว/ถูก free tier ~1500 RPD
+const VISION_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+];
+
 /**
  * ส่งรูปให้ Gemini Vision อ่านราคาสินค้า
+ * ถ้า model หลัก quota หมด จะ fallback ไป model รองอัตโนมัติ
  * @param {Buffer} imageBuffer — binary ของรูปภาพ
  * @returns {{ products: Array, raw_text: string }}
  */
 async function readPriceFromImage(imageBuffer) {
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
-    generationConfig: { temperature: 0.1 },
-  });
-
   const imagePart = {
     inlineData: {
       data: imageBuffer.toString('base64'),
@@ -65,28 +71,50 @@ async function readPriceFromImage(imageBuffer) {
     },
   };
 
-  let text;
-  try {
-    const result = await model.generateContent([AGENT_PROMPT, imagePart]);
-    text = result.response.text().trim();
-  } catch (err) {
-    if (err.message?.includes('API_KEY_INVALID')) {
-      throw new GeminiError('API_KEY_INVALID', 'GEMINI_API_KEY ไม่ถูกต้อง');
+  let lastErr;
+  for (const modelName of VISION_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: { temperature: 0.1 },
+      });
+
+      const result = await model.generateContent([AGENT_PROMPT, imagePart]);
+      const text = result.response.text().trim();
+      if (modelName !== VISION_MODELS[0]) {
+        console.log(`[gemini] ใช้ fallback model: ${modelName}`);
+      }
+
+      const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+      try {
+        return JSON.parse(jsonText);
+      } catch {
+        throw new GeminiError('PARSE_ERROR', `Gemini ตอบไม่ใช่ JSON: ${text.slice(0, 200)}`);
+      }
+    } catch (err) {
+      if (err instanceof GeminiError) throw err; // PARSE_ERROR ไม่ต้อง retry
+
+      if (err.message?.includes('API_KEY_INVALID')) {
+        throw new GeminiError('API_KEY_INVALID', 'GEMINI_API_KEY ไม่ถูกต้อง');
+      }
+
+      const isQuota = err.message?.includes('QUOTA_EXCEEDED')
+        || err.message?.includes('quota')
+        || err.status === 429
+        || err.message?.includes('429');
+
+      if (isQuota) {
+        console.warn(`[gemini] ${modelName} quota หมด → ลอง model ถัดไป`);
+        lastErr = err;
+        continue; // ลอง model ถัดไป
+      }
+
+      throw err; // error อื่นๆ throw ทันที
     }
-    if (err.message?.includes('QUOTA_EXCEEDED') || err.status === 429) {
-      throw new GeminiError('QUOTA_EXCEEDED', 'Gemini quota หมด');
-    }
-    throw err;
   }
 
-  // ตัด markdown code block ออกถ้ามี
-  const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-
-  try {
-    return JSON.parse(jsonText);
-  } catch {
-    throw new GeminiError('PARSE_ERROR', `Gemini ตอบไม่ใช่ JSON: ${text.slice(0, 200)}`);
-  }
+  // ทุก model quota หมดหมด
+  throw new GeminiError('QUOTA_EXCEEDED', 'Gemini quota หมดทุก model แล้ว');
 }
 
 class GeminiError extends Error {
